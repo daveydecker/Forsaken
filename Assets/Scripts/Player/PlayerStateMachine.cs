@@ -256,12 +256,17 @@ public class PlayerStateMachine : StateMachine, IDamageable
         StartCoroutine(StartParryCooldownInternal());
     }
     public void ApplyDamage(int damage) {
+        if (isBlocking && canParry)
+        {
+            StartParry();
+            return;
+        }
         if (Time.time > canTakeDamage && !IsParrying)
         {   Debug.Log("taking damage");
             canTakeDamage = Time.time + Cooldown;
             Health -= damage; 
             IsHurt = true;
-            
+            currentState.SwitchState(new PlayerHurtState(this));
             damageTakenParticles.Play();
         }
         UpdateHealthText();
@@ -271,6 +276,7 @@ public class PlayerStateMachine : StateMachine, IDamageable
         }
     }
 
+    #region animation events
     void OnAttackAnimationStart()
     {
         AttackFinished = false;
@@ -319,6 +325,7 @@ public class PlayerStateMachine : StateMachine, IDamageable
     {
         HurtFinished = true;
     }
+    #endregion
 
     public void OnCollisionEnter2D(Collision2D other)
     {

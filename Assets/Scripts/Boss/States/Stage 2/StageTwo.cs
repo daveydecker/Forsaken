@@ -12,20 +12,20 @@ public class StageTwo : State
     }
     public override void InitializeSubStates()
     {
-        if (bossContext.GrappleInRange())
+        if (bossContext.CanSummon())
         {
-            SetSubState(new BossGrappleState(bossContext));
+            SetSubState(new BossBeginSummonsState(bossContext));
         }
-        else if (bossContext.InRange())
+        else if (bossContext.NextAttack == 1)
+        {   
+            SetSubState(new BossLaserAttackState(bossContext));
+        } else if (bossContext.NextAttack == 2)
         {
-            SetSubState(new BossAttackState(bossContext));
-        } else if (bossContext.IsStunned)
-        {   
-            SetSubState(new BossStunState(bossContext));
-        } else
-        {   
-            SetSubState(new BossWalkState(bossContext));
-        } 
+            SetSubState(new BossMeleeAttackState(bossContext));
+        } else 
+        {
+            SetSubState(new BossIdleState(bossContext));
+        }
     }
     public override void EnterState()
     {
