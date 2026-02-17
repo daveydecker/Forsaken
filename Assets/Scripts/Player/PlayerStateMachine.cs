@@ -256,6 +256,11 @@ public class PlayerStateMachine : StateMachine, IDamageable
         StartCoroutine(StartParryCooldownInternal());
     }
     public void ApplyDamage(int damage) {
+        if (isBlocking && canParry)
+        {
+            StartParry();
+            return;
+        }
         if (Time.time > canTakeDamage && !IsParrying)
         {   Debug.Log("taking damage");
             canTakeDamage = Time.time + Cooldown;
