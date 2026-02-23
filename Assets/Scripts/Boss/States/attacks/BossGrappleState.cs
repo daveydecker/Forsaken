@@ -14,14 +14,15 @@ public class BossGrappleState : State
 
     public override void EnterState()
     {
+        Debug.Log("entered grapple");
         bossContext.GrapplingFinished = 0;
         bossContext.Anim.SetTrigger("grapple");
 
         lineRenderer = bossContext.GetComponentInChildren<LineRenderer>(true);
         if (lineRenderer == null)
         {
-            Debug.LogError("LineRenderer component not found on boss GameObject");
-            SwitchState(new BossStunState(bossContext));
+            Debug.Log("LineRenderer component not found on boss GameObject");
+            SwitchState(new BossTransitionState(bossContext));
             return;
         }
         lineRenderer.enabled = true;
@@ -37,6 +38,7 @@ public class BossGrappleState : State
 
     public override void ExitState()
     {
+        Debug.Log("exiting grapple");
         bossContext.Anim.ResetTrigger("grapple");
         lineRenderer.enabled = false;
     }
@@ -55,6 +57,7 @@ public class BossGrappleState : State
         float duration = bossContext.GrappleDuration;
         float stopDistance = 2f;
         Vector3 grappleTarget = bossContext.Player.GetComponent<Collider2D>().bounds.center;
+        grappleTarget.y = 0f;
 
         // The throwing of the chain
         while (elapsed < duration)
