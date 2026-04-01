@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 using TMPro;
 
 public class PlayerStateMachine : StateMachine, IDamageable
@@ -18,6 +19,7 @@ public class PlayerStateMachine : StateMachine, IDamageable
     [SerializeField] private float dashDistance = 5f;
     [SerializeField] private float parryTiming = 2.5f;
     [SerializeField] private float parryCooldown = 2.5f;
+    [SerializeField] private float maxEnergy = 100f;
 
     [Header("Object References")]
     [SerializeField] private GameManager manager;
@@ -25,6 +27,7 @@ public class PlayerStateMachine : StateMachine, IDamageable
     [SerializeField] private TextMeshProUGUI healthBar;
     [SerializeField] private TextMeshProUGUI dashBar;
     [SerializeField] private GameObject shootIcon;
+    [SerializeField] private Image energyBar;
 
     //player input system
     private PlayerInput playerInput;
@@ -57,6 +60,8 @@ public class PlayerStateMachine : StateMachine, IDamageable
     private int health;
     private float damageCooldown;
     private float canTakeDamage;
+
+    private float currentEnergy;
 
     //additional game objects
     private GameObject dashTrail;
@@ -125,6 +130,7 @@ public class PlayerStateMachine : StateMachine, IDamageable
     public GameObject DashTrail {get {return dashTrail;}}
     public BoxCollider2D SwordHitbox {get {return swordHitbox;}}
     public Player_Ranged RangedWeapon { get { return rangedWeapon; } }
+    [SerializeField] public float Energy {get {return currentEnergy;} set {currentEnergy = value;}}
 
     protected override void Init()
     {
@@ -155,8 +161,10 @@ public class PlayerStateMachine : StateMachine, IDamageable
         playerInput.CharacterControls.Interact.canceled += OnInteractPressed;
 
         Health = 100;
+        Energy = 100f;
         Cooldown = 1f;
         canTakeDamage = 0f; 
+        energyBar.fillAmount = 1;
     }
 
     protected override void EnterBeginningState()
@@ -303,6 +311,13 @@ public class PlayerStateMachine : StateMachine, IDamageable
         }
     }
 
+    public void updateEnergy(int amount)
+    {
+        currentEnergy += amount;
+        Debug.Log("Update energy: " + amount);
+        energyBar.fillAmount = currentEnergy / maxEnergy;
+    }
+
     #region animation events
     void OnAttackAnimationStart()
     {
@@ -334,7 +349,11 @@ public class PlayerStateMachine : StateMachine, IDamageable
     }
     void TriggerBulletShooting()
     {
-        ShootStarted = true;
+        if (Energy >= 10) {
+            ShootStarted = true;
+            updateEnergy(-10);
+        }
+        
     }
     void OnShootAnimationFinish()
     {
