@@ -5,12 +5,8 @@ using UnityEngine.UI;
 using TMPro;
 
 public class PlayerStateMachine : StateMachine, IDamageable
-{
-    [SerializeField]private DialogueUI dialogueUI;
-    public DialogueUI DialogueUI => dialogueUI;
-    public IInteractable Interactable { get; set; }
-
-    //control variables
+{   
+    #region SerializableElements
     [Header("Movement Control Variables")]
     [SerializeField] private  float runSpeed = 7f;
     [SerializeField] private float jumpForce = 20f;
@@ -28,8 +24,12 @@ public class PlayerStateMachine : StateMachine, IDamageable
     [SerializeField] private TextMeshProUGUI dashBar;
     [SerializeField] private GameObject shootIcon;
     [SerializeField] private Image energyBar;
+    [SerializeField]private DialogueUI dialogueUI;
+    public DialogueUI DialogueUI => dialogueUI;
 
-    //player input system
+    #endregion
+    
+    #region PlayerStateInfo
     private PlayerInput playerInput;
     private Vector2 currentMovementInput;
     private bool isMovementPressed;
@@ -53,25 +53,31 @@ public class PlayerStateMachine : StateMachine, IDamageable
     private bool grounded = true;
     private bool isBlocking = false;
     private bool isParrying = false;
+    private int currentParryCooldownId;
     private bool canParry = false;
     private bool hitWall = false;
+    public IInteractable Interactable { get; set; }
+    #endregion
 
+    #region PlayerHealth
     //player info
     private int health;
     private float damageCooldown;
     private float canTakeDamage;
+    #endregion
 
     private float currentEnergy;
 
+    #region VFX Items
     //additional game objects
     private GameObject dashTrail;
-    private Transform groundCheck;
     private Player_Ranged rangedWeapon;
-    private int currentParryCooldownId;
+    
     private ParticleSystem damageTakenParticles;
     [SerializeField] private ParticleSystem parryParticles;
+    #endregion
 
-    //getters and settesr
+    #region Getters and Setters
     public GameManager Manager {get {return manager;}}
     public bool CanMove {get {return canMove;} set {canMove = value;}}
     public bool IsMovementPressed {get {return isMovementPressed;} set {isMovementPressed = value;}}
@@ -125,13 +131,15 @@ public class PlayerStateMachine : StateMachine, IDamageable
     public float SlashForce {get {return slashForce;}}
     public float DashSpeed {get {return dashSpeed;}}
     public float DashDistance {get {return dashDistance;}}
-    [SerializeField] public int Health {get {return health;} set {health = value;}}
-    [SerializeField] public float Cooldown {get {return damageCooldown;} set {damageCooldown = value;}}
+    public int Health {get {return health;} set {health = value;}}
+    public float Cooldown {get {return damageCooldown;} set {damageCooldown = value;}}
     public GameObject DashTrail {get {return dashTrail;}}
     public BoxCollider2D SwordHitbox {get {return swordHitbox;}}
     public Player_Ranged RangedWeapon { get { return rangedWeapon; } }
     [SerializeField] public float Energy {get {return currentEnergy;} set {currentEnergy = value;}}
+    #endregion
 
+    #region StateMachine Updates
     protected override void Init()
     {
         base.Init();
@@ -139,7 +147,6 @@ public class PlayerStateMachine : StateMachine, IDamageable
         //set reference variables
         playerInput = new PlayerInput();
         dashTrail = transform.Find("ghost trail").gameObject;
-        groundCheck = transform.Find("groundedCheck");
         swordHitbox = sprite.Find("sword").GetComponent<BoxCollider2D>();
         rangedWeapon = GetComponentInChildren<Player_Ranged>();
         damageTakenParticles = sprite.Find("hit received particles").GetComponent<ParticleSystem>();
@@ -163,6 +170,7 @@ public class PlayerStateMachine : StateMachine, IDamageable
         Health = 100;
         Energy = 100f;
         Cooldown = 1f;
+        Cooldown = 3f;
         canTakeDamage = 0f; 
         energyBar.fillAmount = 1;
     }
@@ -179,15 +187,9 @@ public class PlayerStateMachine : StateMachine, IDamageable
         HandleMovement();
         currentState.UpdateStates();
     }
+    #endregion
 
-    void OnInteractPressed(InputAction.CallbackContext context)
-    {
-        if (Interactable != null && Interactable.CanInteract())
-        {
-           Interactable?.Interact(this); 
-        }
-    }
-
+    #region Movement and Health Updates
     private void HandleMovement()
     {
         if (canMove)
@@ -207,62 +209,42 @@ public class PlayerStateMachine : StateMachine, IDamageable
         }
     }
 
-    void OnMovementPerformed(InputAction.CallbackContext context)
+    public void ApplyDamage(int damage) {
+        if (isBlocking && canParry)
+        {
+            StartParry();
+            return;
+        }
+        if (Time.time > canTakeDamage && !IsParrying)
+        {   Debug.Log("taking damage");
+            canTakeDamage = Time.time + Cooldown;
+            Health -= damage; 
+            IsHurt = true;
+            currentState.SwitchState(new PlayerHurtState(this));
+            damageTakenParticles.Play();
+        }
+        if (Health <= 0f)
+        {
+            manager.CheckWinStatus();
+        }
+    }
+    public void UnlockAbility(int abilityNum)
     {
-        currentMovementInput = context.ReadValue<Vector2>();
-        isMovementPressed = currentMovementInput.x != 0f;
-        
+        //ability 2 is shooting
+        //ability 3 is dashing
+        if (abilityNum == 2)
+        {
+            shootUnlocked = true;
+            Debug.Log("you can now shoot! click LMB to shoot at your mouse position");
+        } else if (abilityNum == 3)
+        {
+            canDash = true;
+            Debug.Log("you can now shoot! press shift to launch yourself!");
+        }
     }
-
-    void OnMovementCancelled(InputAction.CallbackContext context)
-    {
-        currentMovementInput = Vector2.zero;
-        isMovementPressed = false;
-    }
-
-    void OnRunStart(InputAction.CallbackContext context)
-    {
-        isRunPressed = true;
-        
-    }
-    void OnRunEnd(InputAction.CallbackContext context)
-    {
-        Debug.Log("cancelled run");
-        isRunPressed = false;
-        
-    }
-
-    void OnJump(InputAction.CallbackContext context)
-    {
-        isJumpPressed = context.ReadValueAsButton();
-        
-    }
-    void OnHit(InputAction.CallbackContext context)
-    {
-        isHitPressed = context.ReadValueAsButton();
-    }
-    void OnShoot(InputAction.CallbackContext context)
-    {
-        isShootPressed = shootUnlocked && context.ReadValueAsButton();
-    }
-    void OnBlock(InputAction.CallbackContext context) {
-        isBlocking = context.ReadValueAsButton();
-    }
-    void OnDash(InputAction.CallbackContext context)
-    {
-        isDashPressed = context.ReadValueAsButton();
-    }
-
-    public void OnEnable()
-    {
-        playerInput.CharacterControls.Enable();
-    }
-
-    public void OnDisable()
-    {
-        playerInput.CharacterControls.Disable();
-    }
+    #endregion
     
+    #region Parry Controls
     private IEnumerator StartParryCooldownInternal() {
         CanParry = true;
         int targetParryCooldownId = currentParryCooldownId;
@@ -291,23 +273,17 @@ public class PlayerStateMachine : StateMachine, IDamageable
     public void StartParryCooldown() {
         StartCoroutine(StartParryCooldownInternal());
     }
-    public void ApplyDamage(int damage) {
-        if (isBlocking && canParry)
+    #endregion
+    
+    #region Collision Events
+    public void OnCollisionEnter2D(Collision2D other)
+    {
+        if (other.gameObject.CompareTag("Ground"))
         {
-            StartParry();
-            return;
-        }
-        if (Time.time > canTakeDamage && !IsParrying)
-        {   Debug.Log("taking damage");
-            canTakeDamage = Time.time + Cooldown;
-            Health -= damage; 
-            IsHurt = true;
-            currentState.SwitchState(new PlayerHurtState(this));
-            damageTakenParticles.Play();
-        }
-        if (Health <= 0f)
+            grounded = true;
+        } else if (LayerMask.LayerToName(other.gameObject.layer).Equals("Background"))
         {
-            manager.CheckWinStatus();
+            hitWall = true;
         }
     }
 
@@ -318,6 +294,79 @@ public class PlayerStateMachine : StateMachine, IDamageable
         energyBar.fillAmount = currentEnergy / maxEnergy;
     }
 
+    public void OnCollisionExit2D(Collision2D other)
+    {
+        if (other.gameObject.CompareTag("Ground"))
+        {
+            grounded = false;
+        } else if (LayerMask.LayerToName(other.gameObject.layer).Equals("Background"))
+        {
+            Debug.Log($"Exit: {other.gameObject.name}, tag: {other.gameObject.tag}, layer: {LayerMask.LayerToName(other.gameObject.layer)}");
+            hitWall = false;
+        }
+    }
+    #endregion
+    
+    #region Player Input Controls
+    void OnMovementPerformed(InputAction.CallbackContext context)
+    {
+        currentMovementInput = context.ReadValue<Vector2>();
+        isMovementPressed = currentMovementInput.x != 0f;
+        
+    }
+    void OnMovementCancelled(InputAction.CallbackContext context)
+    {
+        currentMovementInput = Vector2.zero;
+        isMovementPressed = false;
+    }
+    void OnRunStart(InputAction.CallbackContext context)
+    {
+        isRunPressed = true;
+        
+    }
+    void OnRunEnd(InputAction.CallbackContext context)
+    {
+        Debug.Log("cancelled run");
+        isRunPressed = false;
+        
+    }
+    void OnJump(InputAction.CallbackContext context)
+    {
+        isJumpPressed = context.ReadValueAsButton();
+        
+    }
+    void OnHit(InputAction.CallbackContext context)
+    {
+        isHitPressed = context.ReadValueAsButton();
+    }
+    void OnShoot(InputAction.CallbackContext context)
+    {
+        isShootPressed = shootUnlocked && context.ReadValueAsButton();
+    }
+    void OnBlock(InputAction.CallbackContext context) {
+        isBlocking = context.ReadValueAsButton();
+    }
+    void OnDash(InputAction.CallbackContext context)
+    {
+        isDashPressed = context.ReadValueAsButton();
+    }
+    void OnInteractPressed(InputAction.CallbackContext context)
+    {
+        if (Interactable != null && Interactable.CanInteract())
+        {
+           Interactable?.Interact(this); 
+        }
+    }
+    public void OnEnable()
+    {
+        playerInput.CharacterControls.Enable();
+    }
+    public void OnDisable()
+    {
+        playerInput.CharacterControls.Disable();
+    }
+    #endregion
+    
     #region animation events
     void OnAttackAnimationStart()
     {
@@ -370,44 +419,4 @@ public class PlayerStateMachine : StateMachine, IDamageable
         HurtFinished = true;
     }
     #endregion
-
-    public void OnCollisionEnter2D(Collision2D other)
-    {
-        if (other.gameObject.CompareTag("Ground"))
-        {
-            grounded = true;
-        } else if (LayerMask.LayerToName(other.gameObject.layer).Equals("Background"))
-        {
-            hitWall = true;
-        }
-    }
-
-    public void OnCollisionExit2D(Collision2D other)
-    {
-        if (other.gameObject.CompareTag("Ground"))
-        {
-            grounded = false;
-        } else if (LayerMask.LayerToName(other.gameObject.layer).Equals("Background"))
-        {
-            Debug.Log($"Exit: {other.gameObject.name}, tag: {other.gameObject.tag}, layer: {LayerMask.LayerToName(other.gameObject.layer)}");
-            hitWall = false;
-        }
-    }
-
-    //ability 2 is shooting
-    //ability 3 is dashing
-    public void UnlockAbility(int abilityNum)
-    {
-        if (abilityNum == 2)
-        {
-            shootUnlocked = true;
-            Debug.Log("you can now shoot! click LMB to shoot at your mouse position");
-            //shootIcon.SetActive(true);
-        } else if (abilityNum == 3)
-        {
-            canDash = true;
-            Debug.Log("you can now shoot! press shift to launch yourself!");
-            //dashBar.gameObject.SetActive(true);
-        }
-    }
 }
