@@ -16,6 +16,9 @@ public class PlayerStateMachine : StateMachine, IDamageable
     [SerializeField] private float parryTiming = 2.5f;
     [SerializeField] private float parryCooldown = 2.5f;
     [SerializeField] private float maxEnergy = 100f;
+    [SerializeField] private float dashCost = 10f;
+    [SerializeField] private float shootCost = 10f;
+    [SerializeField] private float attackGain = 10f;
 
     [Header("Object References")]
     [SerializeField] private GameManager manager;
@@ -23,7 +26,7 @@ public class PlayerStateMachine : StateMachine, IDamageable
     [SerializeField] private TextMeshProUGUI healthBar;
     [SerializeField] private TextMeshProUGUI dashBar;
     [SerializeField] private GameObject shootIcon;
-    [SerializeField] private Image energyBar;
+    [SerializeField] private Image energyFill;
     [SerializeField]private DialogueUI dialogueUI;
     public DialogueUI DialogueUI => dialogueUI;
 
@@ -136,7 +139,10 @@ public class PlayerStateMachine : StateMachine, IDamageable
     public GameObject DashTrail {get {return dashTrail;}}
     public BoxCollider2D SwordHitbox {get {return swordHitbox;}}
     public Player_Ranged RangedWeapon { get { return rangedWeapon; } }
-    [SerializeField] public float Energy {get {return currentEnergy;} set {currentEnergy = value;}}
+    public float Energy {get {return currentEnergy;} set {currentEnergy = value;}}
+    public float DashCost {get {return dashCost;}}
+    public float ShootCost {get {return shootCost;}}
+    public float AttackGain {get {return attackGain;}}
     #endregion
 
     #region StateMachine Updates
@@ -168,11 +174,11 @@ public class PlayerStateMachine : StateMachine, IDamageable
         playerInput.CharacterControls.Interact.canceled += OnInteractPressed;
 
         Health = 100;
-        Energy = 100f;
+        Energy = maxEnergy;
         Cooldown = 1f;
         Cooldown = 3f;
         canTakeDamage = 0f; 
-        energyBar.fillAmount = 1;
+        energyFill.fillAmount = 1;
     }
 
     protected override void EnterBeginningState()
@@ -242,6 +248,12 @@ public class PlayerStateMachine : StateMachine, IDamageable
             Debug.Log("you can now shoot! press shift to launch yourself!");
         }
     }
+    public void updateEnergy(float amount)
+    {
+        currentEnergy += amount;
+        currentEnergy = Mathf.Clamp(currentEnergy, 0, maxEnergy);
+        energyFill.fillAmount = currentEnergy / maxEnergy;
+    }
     #endregion
     
     #region Parry Controls
@@ -285,13 +297,6 @@ public class PlayerStateMachine : StateMachine, IDamageable
         {
             hitWall = true;
         }
-    }
-
-    public void updateEnergy(int amount)
-    {
-        currentEnergy += amount;
-        Debug.Log("Update energy: " + amount);
-        energyBar.fillAmount = currentEnergy / maxEnergy;
     }
 
     public void OnCollisionExit2D(Collision2D other)
@@ -397,12 +402,11 @@ public class PlayerStateMachine : StateMachine, IDamageable
         ShootFinished = false;
     }
     void TriggerBulletShooting()
-    {
-        if (Energy >= 10) {
-            ShootStarted = true;
-            updateEnergy(-10);
-        }
-        
+    {   
+        if (Energy < 10) {return;}
+        ShootStarted = true;
+        updateEnergy(-shootCost);
+           
     }
     void OnShootAnimationFinish()
     {
