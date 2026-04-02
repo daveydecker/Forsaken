@@ -176,7 +176,6 @@ public class PlayerStateMachine : StateMachine, IDamageable, ISetDifficulty
 
         Health = 100;
         Energy = maxEnergy;
-        Cooldown = 1f;
         Cooldown = 3f;
         canTakeDamage = 0f; 
         energyFill.fillAmount = 1;
