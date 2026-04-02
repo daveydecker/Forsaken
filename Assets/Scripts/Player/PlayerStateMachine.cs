@@ -409,7 +409,7 @@ public class PlayerStateMachine : StateMachine, IDamageable, ISetDifficulty
     }
     void TriggerBulletShooting()
     {   
-        if (Energy < 10) {return;}
+        if (Energy < shootCost) {return;}
         ShootStarted = true;
         updateEnergy(-shootCost);
            
